@@ -12,6 +12,21 @@ from app.security.auth import require_role
 from app.services import build_profile
 
 router = APIRouter(prefix="/api/applications", tags=["bank integration"])
+FINAL_STATUSES = {"APPROVED", "DECLINED"}
+
+
+def refresh_status(con, a: dict) -> dict:
+    """Pull the bank's current status for one application row and store it if it changed (raises BankUnavailable)."""
+    if not a["bank_reference"] or a["status"] in FINAL_STATUSES:
+        return a
+    s = bank.status(a["bank_reference"])
+    if s["status"] != a["status"]:
+        con.execute("UPDATE bank_applications SET status=?, updated_at=? WHERE id=?", (s["status"], now_iso(), a["id"]))
+        audit(con, "bank_status", "bank", "bank_application", str(a["id"]), s)
+        con.commit()
+    a = one(con, "SELECT * FROM bank_applications WHERE id=?", (a["id"],))
+    a["bank"] = s
+    return a
 
 
 @router.post("", summary="Request pre-approval and submit an application to the partner bank")
@@ -45,6 +60,8 @@ def apply(body: ApplicationIn, p: dict = Depends(require_role("user"))):
                          updated_at, response_json) VALUES (?,?,?,?,?,?,?,?,?)""",
                       (uid, prod["product_id"], body.offer_id, sub["application_id"] if sub else None, status, pre["preapproval_id"],
                        now_iso(), now_iso(), json.dumps({"preapproval": pre, "submission": sub, "sent_payload": payload})))
+    # Applying for a lender's product shares the applicant's contact with that lender (same as accepting its offer).
+    con.execute("INSERT OR IGNORE INTO reveals VALUES (?,?,?,?)", (uid, prod["lender_id"], body.offer_id, now_iso()))
     audit(con, "bank_application", p["sub"], "bank_application", str(cur.lastrowid),
           {"product_id": prod["product_id"], "preapproval": pre["status"], "bank_reference": sub and sub["application_id"]})
     con.commit()
@@ -64,15 +81,7 @@ def status(app_id: int, p: dict = Depends(require_role("user"))):
     a = one(con, "SELECT * FROM bank_applications WHERE id=? AND user_id=?", (app_id, p["user_id"]))
     if not a:
         raise HTTPException(404, "application not found")
-    if a["bank_reference"]:
-        try:
-            s = bank.status(a["bank_reference"])
-        except bank.BankUnavailable as e:
-            raise HTTPException(503, str(e))
-        if s["status"] != a["status"]:
-            con.execute("UPDATE bank_applications SET status=?, updated_at=? WHERE id=?", (s["status"], now_iso(), app_id))
-            audit(con, "bank_status", "bank", "bank_application", str(app_id), s)
-            con.commit()
-        a = one(con, "SELECT * FROM bank_applications WHERE id=?", (app_id,))
-        a["bank"] = s
-    return a
+    try:
+        return refresh_status(con, a)
+    except bank.BankUnavailable as e:
+        raise HTTPException(503, str(e))

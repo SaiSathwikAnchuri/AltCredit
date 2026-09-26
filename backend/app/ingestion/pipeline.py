@@ -22,7 +22,7 @@ import numpy as np
 import pandas as pd
 
 from app.config import log
-from app.database.db import audit, now_iso, rows
+from app.database.db import audit, df as sql_df, now_iso, rows
 from app.features.builders import build_user, prepare_frames
 from app.features.userdata import UserData
 from app.ingestion.validation import check_id_mapping, validate
@@ -64,7 +64,7 @@ def _clean(v):
     return v
 
 
-def bulk_insert(con, table: str, df: pd.DataFrame, columns: list, chunk: int = 200_000):
+def bulk_insert(con, table: str, df: pd.DataFrame, columns: list, chunk: int = 20_000):
     cols = [c for c in columns if c in df.columns]
     sql = f"INSERT INTO {table} ({','.join(cols)}) VALUES ({','.join('?' * len(cols))})"
     data = df[cols].astype(object).where(df[cols].notna(), None)
@@ -362,11 +362,11 @@ def load_user(con, user_id: str) -> UserData | None:
     u = rows(con, "SELECT * FROM users WHERE user_id=?", (user_id,))
     if not u:
         return None
-    q = lambda t, extra="": pd.read_sql_query(f"SELECT * FROM {t} WHERE user_id=? {extra}", con, params=(user_id,))
+    q = lambda t, extra="": sql_df(con, f"SELECT * FROM {t} WHERE user_id=? {extra}", (user_id,))
     frames = {
         "demographics": pd.DataFrame(u),
-        "transactions": q("transactions", "ORDER BY date, rowid"),
-        "obligations": q("obligations", "ORDER BY due_date, rowid"),
+        "transactions": q("transactions", "ORDER BY date, id"),
+        "obligations": q("obligations", "ORDER BY due_date, id"),
         "card_statements": q("card_statements"),
         "credit_accounts": q("credit_accounts"),
         "employment_spells": q("employment_spells"),
@@ -381,13 +381,13 @@ def load_all_users(con, cohorts: tuple | None = None) -> tuple[dict, pd.DataFram
     """Batch path: prepare every applicant from SQLite in one pass."""
     where = f"WHERE cohort IN ({','.join('?' * len(cohorts))})" if cohorts else ""
     params = cohorts or ()
-    users = pd.read_sql_query(f"SELECT * FROM users {where}", con, params=params)
+    users = sql_df(con, f"SELECT * FROM users {where}", params)
     sub = f"WHERE user_id IN (SELECT user_id FROM users {where})" if cohorts else ""
-    q = lambda t, order="": pd.read_sql_query(f"SELECT * FROM {t} {sub} {order}", con, params=params)
+    q = lambda t, order="": sql_df(con, f"SELECT * FROM {t} {sub} {order}", params)
     frames = {
         "demographics": users,
-        "transactions": q("transactions", "ORDER BY user_id, date, rowid"),
-        "obligations": q("obligations", "ORDER BY user_id, due_date, rowid"),
+        "transactions": q("transactions", "ORDER BY user_id, date, id"),
+        "obligations": q("obligations", "ORDER BY user_id, due_date, id"),
         "card_statements": q("card_statements"), "credit_accounts": q("credit_accounts"),
         "employment_spells": q("employment_spells"), "residence_spells": q("residence_spells"), "life_events": q("life_events"),
         "id_mapping": users[["user_id", "match_confidence"]],

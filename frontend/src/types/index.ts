@@ -316,3 +316,27 @@ export interface CatalogProduct {
   annual_fee: number | null;
   tenure_months: number | null;
 }
+
+export interface ReceivedApplication {
+  id: number;
+  user_id: string;
+  product_id: string;
+  product_name: string;
+  min_score: number;
+  offer_id: string | null;
+  bank_reference: string | null;
+  status: string;
+  preapproval_id: string | null;
+  created_at: string;
+  updated_at: string;
+  score_at_application: number | null;
+  tier_at_application: string | null;
+  score_now: number | null;
+  tier_now: string | null;
+  review_flag: string | null;
+  requested_amount: number | null;
+  rate: number | null;
+  preapproval_status: string | null;
+  indicative_limit: number | null;
+  contact: { display_name: string; phone: string; locality: string; masked: boolean };
+}

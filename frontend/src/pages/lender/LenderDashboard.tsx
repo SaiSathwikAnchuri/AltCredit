@@ -10,6 +10,8 @@ interface Dash {
   eligible_for_your_products: number;
   above_default_filter: number;
   pending_offers: number;
+  applications_received: number;
+  applications_by_status: Record<string, number>;
   offers_by_status: Record<string, number>;
   acceptance_rate: number | null;
   enhanced_review: number;
@@ -39,6 +41,11 @@ export default function LenderDashboard() {
         <Stat label={`Default filter (${lo}–${hi})`} value={d.above_default_filter.toLocaleString("en-IN")} sub="policy score in range" />
         <Stat label="Eligible for your products" value={d.eligible_for_your_products.toLocaleString("en-IN")} sub="score ≥ your lowest product minimum" />
         <Stat label="Offer acceptance" value={d.acceptance_rate === null ? "—" : pct(d.acceptance_rate, 0)} sub={`${d.pending_offers} awaiting a response`} />
+      </div>
+      <div className="callout small">
+        <b>{d.applications_received}</b> application{d.applications_received === 1 ? "" : "s"} received for your products
+        {d.applications_received > 0 && ` (${Object.entries(d.applications_by_status).map(([s, n]) => `${n} ${s.replace("_", " ").toLowerCase()}`).join(", ")})`}.{" "}
+        <Link to="/lender/applications">View applications</Link>
       </div>
       <div className="grid g2">
         <div className="card">

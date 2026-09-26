@@ -1,7 +1,9 @@
 """API integration: onboarding upload -> score -> simulate -> counterfactual -> lender offer -> accept -> bank.
 
-Runs against a fresh temporary SQLite database (never the demo database) and the
-mock bank mounted in-process, so it needs no running servers.
+Runs against a dedicated MySQL database (ALTCREDIT_TEST_MYSQL_DB, default
+"altcredit_test"; never the demo database), dropped and recreated fresh for
+this module, and the mock bank mounted in-process, so it needs no running
+servers beyond the MySQL server itself.
 """
 from __future__ import annotations
 
@@ -29,13 +31,14 @@ def env(tmp_path_factory):
     os.environ["MOCKBANK_REVIEW_SECONDS"] = "0"
     sys.path.insert(0, str(ROOT))
     from app.config import settings
-    settings.db_path = tmp / "t.db"
+    settings.mysql_db = os.environ.get("ALTCREDIT_TEST_MYSQL_DB", "altcredit_test")
     settings.bank_api_key = "k-test"
     settings.reports_dir = tmp
-    from app.database.db import connect, init_schema, now_iso
+    from app.database.db import connect, drop_all, init_schema, now_iso
     from app.ingestion.pipeline import load_catalog
     from app.security.auth import hash_password
-    con = connect(settings.db_path)
+    con = connect()
+    drop_all(con)
     init_schema(con)
     load_catalog(con, json.loads((FIX / "product_catalog.json").read_text()), json.loads((FIX / "lenders.json").read_text()),
                  {"P_01", "P_02", "P_03", "P_04"})
@@ -149,6 +152,15 @@ def test_end_to_end_flow(env):
     assert uid not in json.dumps(body["sent_to_bank"]) and "Test Person" not in json.dumps(body["sent_to_bank"])
     st = c.get(f"/api/applications/{body['id']}", headers=auth(tok)).json()
     assert st["status"] in ("APPROVED", "MANUAL_REVIEW", "UNDER_REVIEW", "SUBMITTED")
+
+    # the lender that owns the product sees the application it received, with the applicant's contact
+    recv = c.get("/api/lenders/applications", headers=auth(ltok))
+    assert recv.status_code == 200, recv.text
+    got = next(a for a in recv.json()["items"] if a["id"] == body["id"])
+    assert got["product_id"] == "P_03" and got["user_id"] == uid and got["score_at_application"] == pol["score"]
+    assert got["contact"]["masked"] is False and "response_json" not in got
+    assert c.get("/api/lenders/dashboard", headers=auth(ltok)).json()["applications_received"] >= 1
+    assert c.get("/api/lenders/applications", headers=auth(tok)).status_code == 403
 
     # audit trail recorded the key actions
     actions = {a["action"] for a in c.get(f"/api/admin/audit?entity_id={uid}", headers=auth(tok)).json()}

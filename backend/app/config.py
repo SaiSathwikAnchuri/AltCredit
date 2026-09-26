@@ -22,7 +22,13 @@ def _first_existing(*candidates: Path) -> Path:
 
 class Settings:
     def __init__(self):
-        self.db_path = _path("ALTCREDIT_DB", REPO_ROOT / "data" / "altcredit.db")
+        self.db_path = _path("ALTCREDIT_DB", REPO_ROOT / "data" / "altcredit.db")  # kept only for models_dir-style path defaults; no longer used for storage
+        # MySQL connection (app/database/db.py). AltCredit's database is MySQL, not SQLite.
+        self.mysql_host = os.environ.get("ALTCREDIT_MYSQL_HOST", "127.0.0.1")
+        self.mysql_port = int(os.environ.get("ALTCREDIT_MYSQL_PORT", "3306"))
+        self.mysql_user = os.environ.get("ALTCREDIT_MYSQL_USER", "altcredit")
+        self.mysql_password = os.environ.get("ALTCREDIT_MYSQL_PASSWORD", "")
+        self.mysql_db = os.environ.get("ALTCREDIT_MYSQL_DB", "altcredit")
         self.dataset_dir = _path("ALTCREDIT_DATASET_DIR", _first_existing(
             REPO_ROOT.parent / "Datasets_AltCredit_v2", REPO_ROOT / "data" / "raw" / "Datasets_AltCredit_v2",
             Path("/mnt/project-files/Datasets_AltCredit_v2")))

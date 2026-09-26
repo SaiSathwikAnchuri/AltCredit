@@ -143,7 +143,7 @@ def build_profile(con, user_id: str, persist: bool = False, trigger: str = "requ
 def persist_score(con, user_id: str, profile: dict, trigger: str, actor: str = "system", commit: bool = True):
     pol = profile["policy"]
     con.execute("UPDATE scores SET is_current=0 WHERE user_id=? AND is_current=1", (user_id,))
-    cur = con.execute("""INSERT INTO scores (user_id, as_of, score, raw_score, tier, decision, data_quality, rule_version, trigger,
+    cur = con.execute("""INSERT INTO scores (user_id, as_of, score, raw_score, tier, decision, data_quality, rule_version, `trigger`,
                          computed_at, latency_ms, is_current, result_json) VALUES (?,?,?,?,?,?,?,?,?,?,?,1,?)""",
                       (user_id, pol["as_of"], pol["score"], pol["raw_score"], pol["tier"]["code"], pol["decision"]["code"],
                        pol["data_quality"]["status"], pol["rule_version"], trigger, now_iso(), profile["timing_ms"]["total"],

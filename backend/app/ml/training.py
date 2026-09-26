@@ -16,6 +16,7 @@ from app.config import log
 from app.features.builders import build_user
 from app.features.engineering import compute_features
 from app.features.userdata import d64, month_start
+from app.database.db import df
 from app.ingestion.pipeline import load_all_users
 from app.ml.features import PD_FEATURES, PROPENSITY_FEATURES, pd_vector, propensity_vector
 from app.ml.models import save_bundle, train_pd, train_propensity
@@ -27,8 +28,8 @@ PROPENSITY_SPLIT_DATE = "2025-12-01"
 
 
 def build_pd_table(con, prep) -> pd.DataFrame:
-    apps = pd.read_sql_query("""SELECT application_id, user_id, application_date, default_12m, decision
-                                FROM historical_applications WHERE decision='approved' AND default_12m IS NOT NULL""", con)
+    apps = df(con, """SELECT application_id, user_id, application_date, default_12m, decision
+                                FROM historical_applications WHERE decision='approved' AND default_12m IS NOT NULL""")
     out = []
     for r in apps.itertuples():
         ud = build_user(prep, r.user_id)
@@ -42,9 +43,9 @@ def build_pd_table(con, prep) -> pd.DataFrame:
 
 
 def build_propensity_table(con, prep) -> pd.DataFrame:
-    offers = pd.read_sql_query("SELECT * FROM historical_offers", con)
-    products = pd.read_sql_query("SELECT * FROM products", con).set_index("product_id")
-    sims = pd.read_sql_query("SELECT user_id, event_ts, event_type, scenario_type, target_product_id FROM simulator_events WHERE source='dataset'", con)
+    offers = df(con, "SELECT * FROM historical_offers")
+    products = df(con, "SELECT * FROM products").set_index("product_id")
+    sims = df(con, "SELECT user_id, event_ts, event_type, scenario_type, target_product_id FROM simulator_events WHERE source='dataset'")
     sims["ts"] = pd.to_datetime(sims.event_ts)
     sims_by_user = {u: g for u, g in sims.groupby("user_id")}
     offers["as_of"] = offers.offer_date.str[:7] + "-01"

@@ -18,14 +18,21 @@ Requirements: Python 3.11+, Node 20+.
 # 1. Python environment
 python3 -m venv .venv && .venv/bin/pip install -r backend/requirements.txt
 
-# 2. Build the database: ingest + validate datasets, train ML, score everyone, create demo logins (~6 min)
+# 2. MySQL database (AltCredit's storage is MySQL, run by you locally). Once, on your MySQL server:
+#    CREATE DATABASE altcredit;
+#    CREATE USER 'altcredit'@'localhost' IDENTIFIED BY 'devpass';
+#    GRANT ALL PRIVILEGES ON altcredit.* TO 'altcredit'@'localhost';
+#    Then set ALTCREDIT_MYSQL_HOST/PORT/USER/PASSWORD/DB (see .env.example) if they differ from those defaults.
+
+# 3. Build the database: ingest + validate datasets, train ML, score everyone, create demo logins (~6 min)
 #    Reads ../Datasets_AltCredit_v2 and ../Datasets_AltCredit (override with ALTCREDIT_DATASET_DIR / ALTCREDIT_LEGACY_DATASET_DIR)
+#    Drops and recreates every AltCredit table in the MySQL database above before reloading it.
 .venv/bin/python backend/scripts/seed.py
 
-# 3. Frontend
+# 4. Frontend
 (cd frontend && npm install && npm run build)
 
-# 4. Run mock bank (:8001) + API and UI (:8000)
+# 5. Run mock bank (:8001) + API and UI (:8000)
 bash scripts/run.sh         # open http://127.0.0.1:8000     (API docs: /docs)
 bash scripts/run.sh --dev   # additionally runs Vite on http://127.0.0.1:5173 with hot reload
 ```
@@ -82,7 +89,7 @@ backend/app/ml/                 PD + propensity models, agreement engine, traini
 backend/app/simulator/          What-If projection (status-quo replay + hypothetical overlay)
 backend/app/counterfactual/     target achievement search, verified by re-scoring
 backend/app/api/                FastAPI routers; backend/app/main.py serves the built UI too
-backend/app/database/schema.sql SQLite schema (append-only score history, audit log)
+backend/app/database/schema.sql MySQL schema (append-only score history, audit log)
 backend/scripts/seed.py         ingest -> train -> score -> demo accounts
 mockbank/app.py                 mock partner bank (separate process, API key)
 frontend/                       React + TypeScript + Vite

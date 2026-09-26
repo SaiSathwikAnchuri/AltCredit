@@ -4,6 +4,7 @@ import LenderLayout from "./layouts/LenderLayout";
 import UserLayout from "./layouts/UserLayout";
 import AdminHome from "./pages/admin/AdminHome";
 import Analytics from "./pages/lender/Analytics";
+import ApplicationsReceived from "./pages/lender/ApplicationsReceived";
 import CandidateDetail from "./pages/lender/CandidateDetail";
 import Candidates from "./pages/lender/Candidates";
 import LenderDashboard from "./pages/lender/LenderDashboard";
@@ -57,6 +58,7 @@ export default function App() {
         <Route path="candidates" element={<Candidates base="/lender" />} />
         <Route path="candidates/:id" element={<CandidateDetail base="/lender" />} />
         <Route path="offers" element={<SentOffers />} />
+        <Route path="applications" element={<ApplicationsReceived />} />
         <Route path="analytics" element={<Analytics />} />
       </Route>
       <Route path="/admin" element={<LenderLayout role="admin" />}>

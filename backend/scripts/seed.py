@@ -1,4 +1,4 @@
-"""Build the AltCredit SQLite database end to end.
+"""Build the AltCredit MySQL database end to end.
 
     python scripts/seed.py            # ingest -> train ML -> score everyone -> demo accounts
     python scripts/seed.py --skip-ml  # reuse existing models/ (faster)
@@ -25,7 +25,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import pandas as pd  # noqa: E402
 
 from app.config import log, settings  # noqa: E402
-from app.database.db import connect, init_schema, now_iso, rows  # noqa: E402
+from app.database.db import connect, df as sql_df, drop_all, init_schema, now_iso, rows  # noqa: E402
 from app.features.builders import build_user  # noqa: E402
 from app.ingestion.pipeline import ingest_legacy, ingest_v2, load_all_users  # noqa: E402
 from app.ml.models import load_models  # noqa: E402
@@ -58,10 +58,10 @@ def score_everyone(con):
 
 
 def pick_demo_users(con) -> dict:
-    live = pd.read_sql_query("""SELECT u.user_id, s.score, s.tier, s.data_quality, s.result_json, m.pd, m.agreement_status
+    live = sql_df(con, """SELECT u.user_id, s.score, s.tier, s.data_quality, s.result_json, m.pd, m.agreement_status
                                 FROM users u JOIN scores s ON s.user_id=u.user_id AND s.is_current=1
                                 LEFT JOIN ml_predictions m ON m.user_id=u.user_id AND m.is_current=1
-                                WHERE u.cohort='live' AND u.match_confidence >= 0.8""", con)
+                                WHERE u.cohort='live' AND u.match_confidence >= 0.8""")
     flags = live.result_json.map(lambda j: {f["code"] for f in json.loads(j)["policy"]["data_quality"]["flags"]})
     live["no_line"] = flags.map(lambda f: "NO_CREDIT_LINE" in f)
     gaps = {"INCOME_MISSING", "INCOME_VERIFIED", "EMPLOYMENT_MISSING", "UTILITY_HISTORY_MISSING", "HOUSING_MISSING",
@@ -124,15 +124,16 @@ def seed_offers(con, demo_users: dict):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--skip-ml", action="store_true")
-    ap.add_argument("--db", default=None)
+    ap.add_argument("--data-dir", default=None, help="where demo_accounts.json is written (default: <repo>/data). "
+                                                       "The database itself is MySQL, configured via ALTCREDIT_MYSQL_* env vars.")
     ap.add_argument("--accounts-only", action="store_true", help="re-pick demo applicants and recreate logins on an existing database")
     args = ap.parse_args()
-    if args.db:
-        settings.db_path = Path(args.db).resolve()
+    if args.data_dir:
+        settings.db_path = Path(args.data_dir).resolve() / "altcredit.db"
+    settings.db_path.parent.mkdir(parents=True, exist_ok=True)
     t0 = time.time()
-    db = Path(settings.db_path)
     if args.accounts_only:
-        con = connect(db)
+        con = connect()
         con.execute("DELETE FROM auth_accounts")
         con.execute("UPDATE users SET demo_label=NULL")
         demo = pick_demo_users(con)
@@ -140,10 +141,9 @@ def main():
         (settings.db_path.parent / "demo_accounts.json").write_text(json.dumps(demo, indent=2))
         log.info("demo applicants: %s", demo)
         return
-    for p in (db, db.with_suffix(".db-wal"), db.with_suffix(".db-shm")):
-        if p.exists():
-            p.unlink()
-    con = connect(db)
+    con = connect()
+    log.info("resetting MySQL database %s @ %s:%s", settings.mysql_db, settings.mysql_host, settings.mysql_port)
+    drop_all(con)
     init_schema(con)
     log.info("dataset dir: %s", settings.dataset_dir)
     r = ingest_v2(con, settings.dataset_dir, legacy_catalog_ids={"P_01", "P_02", "P_03", "P_04"})
@@ -162,7 +162,7 @@ def main():
     create_accounts(con, demo, os.environ.get("ALTCREDIT_DEMO_PASSWORD", "AltCredit#2026"))
     seed_offers(con, demo)
     (settings.db_path.parent / "demo_accounts.json").write_text(json.dumps(demo, indent=2))
-    log.info("seed complete in %.0fs -> %s", time.time() - t0, db)
+    log.info("seed complete in %.0fs -> mysql://%s:%s/%s", time.time() - t0, settings.mysql_host, settings.mysql_port, settings.mysql_db)
 
 
 if __name__ == "__main__":

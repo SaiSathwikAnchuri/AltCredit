@@ -70,7 +70,7 @@ def products(user_id: str, p: dict = Depends(current_principal)):
 @router.get("/users/{user_id}/history", summary="Stored score history (append-only)")
 def history(user_id: str, p: dict = Depends(current_principal)):
     assert_user_access(p, user_id)
-    return rows(get_conn(), """SELECT score_id, as_of, score, raw_score, tier, decision, data_quality, rule_version, trigger, computed_at,
+    return rows(get_conn(), """SELECT score_id, as_of, score, raw_score, tier, decision, data_quality, rule_version, `trigger`, computed_at,
                                latency_ms FROM scores WHERE user_id=? ORDER BY score_id DESC LIMIT 50""", (user_id,))
 
 

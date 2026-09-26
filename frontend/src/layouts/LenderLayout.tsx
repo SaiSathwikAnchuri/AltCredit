@@ -6,6 +6,7 @@ const LENDER_NAV = [
   ["/lender", "Dashboard", true],
   ["/lender/candidates", "Candidates", false],
   ["/lender/offers", "Sent offers", false],
+  ["/lender/applications", "Applications", false],
   ["/lender/analytics", "Analytics", false],
 ] as const;
 
@@ -31,7 +32,7 @@ export default function LenderLayout({ role }: { role: "lender" | "admin" }) {
           </NavLink>
         ))}
         <div className="foot">
-          Candidates are ranked by the rule-based policy score. ML PD is a validation column only. Names and phone numbers stay masked until an applicant accepts your offer.
+          Candidates are ranked by the rule-based policy score. ML PD is a validation column only. Names and phone numbers stay masked until an applicant accepts your offer or applies for your product.
         </div>
       </aside>
       <div className="shell-main">

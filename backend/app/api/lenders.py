@@ -7,7 +7,9 @@ from typing import Literal
 import numpy as np
 from fastapi import APIRouter, Depends, HTTPException, Query
 
+from app.api.applications import refresh_status
 from app.api.offers_logic import contact_for
+from app.bank import client as bank
 from app.api.users import _profile
 from app.database.db import get_conn, one, rows
 from app.rules import policy as P
@@ -109,6 +111,36 @@ def candidate(user_id: str, p: dict = Depends(require_role("lender", "admin"))):
     return prof
 
 
+@router.get("/applications", summary="Bank applications applicants submitted for this lender's products")
+def applications(p: dict = Depends(require_role("lender")), refresh: bool = True):
+    con = get_conn()
+    apps = rows(con, """SELECT a.*, pr.product_name, pr.min_score FROM bank_applications a JOIN products pr ON pr.product_id=a.product_id
+                        WHERE pr.lender_id=? ORDER BY a.id DESC""", (p["lender_id"],))
+    bank_ok = True
+    out = []
+    for a in apps:
+        if refresh and bank_ok:
+            try:
+                a = refresh_status(con, a) | {"product_name": a["product_name"], "min_score": a["min_score"]}
+            except bank.BankUnavailable:
+                bank_ok = False
+        sent = json.loads(a.pop("response_json") or "{}")
+        payload, pre = sent.get("sent_payload") or {}, sent.get("preapproval") or {}
+        now = one(con, "SELECT score, tier FROM scores WHERE user_id=? AND is_current=1", (a["user_id"],)) or {}
+        a.pop("bank", None)
+        out.append(a | {
+            "score_at_application": payload.get("policy_score"), "tier_at_application": payload.get("risk_tier"),
+            "score_now": now.get("score"), "tier_now": now.get("tier"), "review_flag": payload.get("review_flag"),
+            "requested_amount": payload.get("requested_amount"), "rate": payload.get("rate"),
+            "preapproval_status": pre.get("status"), "indicative_limit": pre.get("indicative_limit"),
+            "contact": contact_for(con, a["user_id"], p["lender_id"], p["role"]),
+        })
+    counts = {}
+    for a in out:
+        counts[a["status"]] = counts.get(a["status"], 0) + 1
+    return {"items": out, "by_status": counts, "bank_available": bank_ok}
+
+
 @router.get("/dashboard", summary="KPIs for the lender home page")
 def dashboard(p: dict = Depends(require_role("lender", "admin"))):
     con = get_conn()
@@ -118,6 +150,8 @@ def dashboard(p: dict = Depends(require_role("lender", "admin"))):
     offers = rows(con, "SELECT status, COUNT(*) AS n FROM offers WHERE lender_id=? GROUP BY status", (p.get("lender_id"),))
     by = {o["status"]: o["n"] for o in offers}
     responded = by.get("accepted", 0) + by.get("rejected", 0)
+    apps = rows(con, """SELECT a.status, COUNT(*) AS n FROM bank_applications a JOIN products pr ON pr.product_id=a.product_id
+                        WHERE pr.lender_id=? GROUP BY a.status""", (p.get("lender_id"),))
     tiers = {}
     for c in base:
         tiers[c["tier"]] = tiers.get(c["tier"], 0) + 1
@@ -129,6 +163,7 @@ def dashboard(p: dict = Depends(require_role("lender", "admin"))):
         "acceptance_rate": round(by.get("accepted", 0) / responded, 3) if responded else None,
         "enhanced_review": sum(1 for c in base if c["review_flag"] == "ENHANCED_REVIEW"),
         "second_look": sum(1 for c in base if c["review_flag"] == "SECOND_LOOK"),
+        "applications_received": sum(a["n"] for a in apps), "applications_by_status": {a["status"]: a["n"] for a in apps},
         "tier_counts": tiers, "your_products": own,
     }
 
