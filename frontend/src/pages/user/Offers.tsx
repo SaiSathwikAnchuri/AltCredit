@@ -51,7 +51,7 @@ export default function Offers() {
       <div className="page-head">
         <div>
           <h1>Offers from lenders</h1>
-          <p>Lenders see you anonymously. Your name and phone number are shared with a lender only when you accept its offer.</p>
+          <p>Lenders see you anonymously until you accept an offer.</p>
         </div>
       </div>
       {err && <ErrorBox error={err} />}
@@ -78,7 +78,7 @@ export default function Offers() {
               <dt>Interest rate</dt>
               <dd>{o.interest_rate}%</dd>
               <dt>Product minimum</dt>
-              <dd>{o.min_score} (your score when sent: {o.score_at_offer})</dd>
+              <dd>{o.min_score}</dd>
               <dt>Expires</dt>
               <dd>{dateTime(o.expires_at)}</dd>
             </dl>
@@ -118,8 +118,7 @@ export default function Offers() {
           }
         >
           <p>
-            {confirm.lender_name} will see your name, phone number and locality. Your policy score is re-checked now; if it has dropped below {confirm.min_score}, the
-            offer is withdrawn.
+            {confirm.lender_name} will see your name, phone number and locality. We re-check your score first; if it's now below {confirm.min_score}, the offer is withdrawn.
           </p>
         </Modal>
       )}

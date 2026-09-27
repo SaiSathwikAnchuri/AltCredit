@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { FactorInfluence } from "../../components/FactorInfluence";
 import { ErrorBox, MLLabel, PolicyLabel, TierBadge } from "../../components/ui";
 import { useUser } from "../../layouts/UserLayout";
 import { download } from "../../services/api";
@@ -27,7 +28,7 @@ export default function Report() {
       <div className="page-head">
         <div>
           <h1>Transparency report</h1>
-          <p>A document you can keep or share: your score, every rule, what the ML check said, and a plan for your next product.</p>
+          <p>Your score, every rule and a plan for your next product, in one PDF you can keep or share.</p>
         </div>
         <div className="row">
           <button className="btn btn-primary" onClick={() => get("pdf")} disabled={busy !== null}>
@@ -39,10 +40,11 @@ export default function Report() {
         </div>
       </div>
       {err && <ErrorBox error={err} />}
+      <FactorInfluence policy={p.policy} title="Rules that influenced this decision" />
       <div className="card card-body stack">
         <div className="row between">
           <PolicyLabel />
-          <span className="xs muted">as of {date(p.policy.as_of)} · {p.policy.rule_version}</span>
+          <span className="xs muted">as of {date(p.policy.as_of)}</span>
         </div>
         <div className="row">
           <span className="big-num">{p.policy.score}</span>
@@ -70,10 +72,9 @@ export default function Report() {
         <MLLabel />
         <p className="small">
           {p.ml.available
-            ? `${p.ml.text} ML Risk Score ${p.ml.ml_risk_score} (validation only). Agreement: ${p.ml.agreement?.label}.`
+            ? `${p.ml.agreement?.label ?? ""}. ${p.ml.agreement?.text ?? ""}`
             : "ML validation unavailable."}
         </p>
-        <div className="xs muted">The PDF also includes eligibility for every product, the data-quality summary and a verified plan for your next locked product.</div>
       </div>
     </div>
   );

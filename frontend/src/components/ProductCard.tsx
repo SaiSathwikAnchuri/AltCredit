@@ -37,11 +37,16 @@ export function ProductCard({ p, actions, showPropensity = false }: { p: Product
         {showPropensity && p.propensity !== undefined && p.propensity !== null && (
           <>
             <dt>Predicted acceptance</dt>
-            <dd style={{ color: "var(--ml)" }}>{(p.propensity * 100).toFixed(1)}% <span className="xs muted">(Case 2 model)</span></dd>
+            <dd style={{ color: "var(--ml)" }}>{(p.propensity * 100).toFixed(1)}%</dd>
           </>
         )}
       </dl>
-      <div className="xs muted">{p.why_recommended ?? p.reason}</div>
+      {p.eligible ? null : (
+        <div>
+          <div className="bar" title={`${p.applicant_score} of ${p.min_score}`}><span style={{ width: `${Math.min(100, (p.applicant_score / Math.max(p.min_score, 1)) * 100)}%`, background: "var(--accent)" }} /></div>
+          <div className="xs muted" style={{ marginTop: 4 }}>{p.applicant_score} / {p.min_score} needed</div>
+        </div>
+      )}
       {actions && <div className="row">{actions}</div>}
     </div>
   );

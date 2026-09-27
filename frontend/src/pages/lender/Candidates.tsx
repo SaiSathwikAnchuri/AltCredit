@@ -51,6 +51,7 @@ export default function Candidates({ base = "/lender" }: { base?: string }) {
   const { data, error, loading, reload } = useApi<Page>(policy.data ? `/api/lenders/candidates?${query.toString()}` : null);
   const [sel, setSel] = useState<Set<string>>(new Set());
   const [bulk, setBulk] = useState(false);
+  const [more, setMore] = useState(() => ["validation", "employment", "data_quality", "city_tier", "income_min", "pd_max", "review_flag", "exclude_offered"].some((k) => sp.has(k)));
 
   const get = (k: string) => query.get(k) ?? "";
   const getAll = (k: string) => query.getAll(k);
@@ -82,10 +83,7 @@ export default function Candidates({ base = "/lender" }: { base?: string }) {
       <div className="page-head">
         <div>
           <h1>Candidates</h1>
-          <p>
-            Ranked by rule-based policy score (default range {defLo}–{defHi}). ML default probability is shown as a validation column; it never re-ranks or filters
-            anyone unless you ask it to.
-          </p>
+          <p>Ranked by policy score. ML default probability is shown for validation only.</p>
         </div>
         {isLender && (
           <button className="btn btn-primary" disabled={!sel.size || !ownProducts.length} onClick={() => setBulk(true)}>
@@ -118,11 +116,19 @@ export default function Candidates({ base = "/lender" }: { base?: string }) {
             </select>
           </label>
         </div>
-        <div className="grid g2">
-          <div className="field">
+        <div className="row between">
+          <div className="field" style={{ flex: 1 }}>
             Risk tier
             <Chips options={tiers.map((t) => t.code)} labels={Object.fromEntries(tiers.map((t) => [t.code, `${t.code} ${t.name}`]))} value={getAll("tiers")} onChange={(v) => update({ tiers: v })} />
           </div>
+          <div className="row" style={{ alignSelf: "flex-end" }}>
+            <button className="btn btn-sm btn-ghost" onClick={() => setMore((m) => !m)} aria-expanded={more}>{more ? "Fewer filters ▲" : "More filters ▼"}</button>
+            <button className="btn btn-sm" onClick={reset}>Reset</button>
+          </div>
+        </div>
+        {more && (
+        <div className="filters-more stack">
+        <div className="grid g2">
           <div className="field">
             Rule vs ML validation
             <Chips options={Object.keys(AGREEMENT_LABEL)} labels={AGREEMENT_LABEL} value={getAll("validation")} onChange={(v) => update({ validation: v })} />
@@ -159,9 +165,10 @@ export default function Candidates({ base = "/lender" }: { base?: string }) {
           </label>
           <div className="stack" style={{ gap: 6, justifyContent: "flex-end" }}>
             <label className="checkbox"><input type="checkbox" checked={get("exclude_offered") === "true"} onChange={(e) => update({ exclude_offered: e.target.checked ? "true" : null })} /> Hide candidates I already made an offer to</label>
-            <button className="btn btn-sm" onClick={reset}>Reset filters</button>
           </div>
         </div>
+        </div>
+        )}
       </div>
 
       {error && <ErrorBox error={error} onRetry={reload} />}
@@ -222,8 +229,8 @@ export default function Candidates({ base = "/lender" }: { base?: string }) {
                       <td className="r num"><b>{c.score}</b></td>
                       <td><TierBadge tier={c.tier} /></td>
                       <td className="small">
-                        {titleCase(c.employment_status)} · {inr(c.monthly_income)}/mo
-                        <div className="xs muted">age {c.age ?? "—"} · city tier {c.city_tier ?? "—"} · {titleCase(c.housing_status)}</div>
+                        {titleCase(c.employment_status)}
+                        <div className="xs muted">{inr(c.monthly_income)}/mo</div>
                       </td>
                       <td className="r num" style={{ color: "var(--ml)" }}>{pct(c.pd)}</td>
                       <td>{c.agreement_status && <Badge tone={AGREEMENT_TONE[c.agreement_status]}>{AGREEMENT_LABEL[c.agreement_status]}</Badge>}</td>

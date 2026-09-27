@@ -30,8 +30,8 @@ export default function Applications() {
     <div className="stack">
       <div className="page-head">
         <div>
-          <h1>Bank applications</h1>
-          <p>AltCredit → POST /bank/preapproval → POST /bank/apply → GET /bank/application/&#123;id&#125; on the mock partner bank.</p>
+          <h1>My applications</h1>
+          <p>Track what the bank has decided on each application.</p>
         </div>
       </div>
       {error && <ErrorBox error={error} onRetry={reload} />}
@@ -49,10 +49,8 @@ export default function Applications() {
             <thead>
               <tr>
                 <th>Product</th>
-                <th>Bank reference</th>
                 <th>Status</th>
                 <th>Submitted</th>
-                <th>Updated</th>
                 <th />
               </tr>
             </thead>
@@ -65,10 +63,8 @@ export default function Applications() {
                       <b>{a.product_name}</b>
                       <div className="xs muted">{resp.preapproval?.message}</div>
                     </td>
-                    <td className="mono">{a.bank_reference ?? "—"}</td>
                     <td><Badge tone={TONE[a.status] ?? ""} dot>{a.status.replace("_", " ")}</Badge></td>
                     <td className="small">{dateTime(a.created_at)}</td>
-                    <td className="small">{dateTime(a.updated_at)}</td>
                     <td className="r">
                       {a.bank_reference && (
                         <button className="btn btn-sm" onClick={() => check(a.id)} disabled={busy === a.id}>

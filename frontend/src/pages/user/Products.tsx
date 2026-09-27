@@ -47,19 +47,17 @@ export default function Products() {
       <div className="page-head">
         <div>
           <h1>Products</h1>
-          <p>Eligibility is decided only by your policy score against each product's published minimum. Nothing here is hard-coded.</p>
+          <p>Products unlock when your score reaches their minimum.</p>
         </div>
       </div>
       <h2>Recommended for you</h2>
       {p.recommendations.length ? (
         <>
-          <p className="small muted">{p.recommendations[0].ordering_basis}</p>
           <div className="grid g3">
             {p.recommendations.map((x) => (
               <ProductCard
                 key={x.product_id}
                 p={x}
-                showPropensity
                 actions={
                   <button className="btn btn-primary btn-sm" onClick={() => { setApplying(x); setAmount(String(x.amount_min ?? "")); setErr(null); }}>
                     Apply with partner bank
@@ -111,8 +109,7 @@ export default function Products() {
           }
         >
           <p className="small">
-            AltCredit sends the partner bank ({applying.lender_name}) your policy score, risk tier and review flag with a pseudonymous reference. Your name and
-            phone number are not sent. The bank's response is simulated.
+            {applying.lender_name} receives your score and risk tier. Your name and phone number are not sent.
           </p>
           <label className="field">
             Requested amount (₹{(applying.amount_min ?? 0).toLocaleString("en-IN")} – {inr(applying.amount_max)})

@@ -17,27 +17,27 @@ async function demoLogin(page: Page, label: RegExp) {
 test("applicant: score, factors, what-if, target, report", async ({ page }) => {
   watch(page);
   await demoLogin(page, /Moderate/);
-  await expect(page.getByText("Rule-Based Policy Decision").first()).toBeVisible();
+  await expect(page.getByText("Your AltCredit score").first()).toBeVisible();
   const score = await page.locator(".hero-score svg text").first().textContent();
   expect(Number(score)).toBeGreaterThan(0);
 
-  await page.getByRole("link", { name: "Score details" }).click();
+  await page.getByRole("link", { name: "My score" }).click();
   await expect(page.getByText("Employment Stability").first()).toBeVisible();
-  await page.getByRole("tab", { name: "Score trace" }).click();
+  await page.getByText("Show the exact calculation").click();
   await expect(page.getByText(/Final: \d+ \/ 1000/)).toBeVisible();
-  await page.getByRole("tab", { name: "ML validation" }).click();
+  await page.getByRole("tab", { name: "ML check" }).click();
   await expect(page.getByText("ML Risk Score").first()).toBeVisible();
 
   await page.getByRole("link", { name: "What-If" }).click();
   await page.getByRole("button", { name: "Simulate for me" }).nth(3).click(); // delinquency preset
   await expect(page.locator("#sim-result")).toBeVisible();
-  await expect(page.locator("#sim-result").getByText("Nothing was saved to your history")).toBeVisible();
+  await expect(page.locator("#sim-result").getByText("Effect of the change itself")).toBeVisible();
 
-  await page.getByRole("link", { name: "Target" }).click();
+  await page.getByRole("link", { name: "Goal planner" }).click();
   await page.getByRole("button", { name: "Find my plan" }).click();
   await expect(page.locator(".card-head .badge").filter({ hasText: /reachable|already eligible|blocked/i })).toBeVisible({ timeout: 60_000 });
 
-  await page.getByRole("link", { name: "Profile" }).click();
+  await page.getByTitle("Profile and data").click();
   await expect(page.getByText("Score history")).toBeVisible();
   await page.getByRole("link", { name: "Report" }).click();
   const dl = page.waitForEvent("download");
@@ -50,7 +50,7 @@ test("lender offer -> applicant accepts -> contact revealed -> bank application"
   const lender = await (await browser.newContext()).newPage();
   watch(lender);
   await demoLogin(lender, /Pinewood/);
-  await expect(lender.getByRole("heading", { name: "Dashboard" })).toBeVisible();
+  await expect(lender.getByRole("heading", { name: "Overview" })).toBeVisible();
 
   // candidate list is anonymised and filterable
   await lender.goto("/lender/candidates?eligible_for=P_03&score_min=650");
@@ -60,7 +60,7 @@ test("lender offer -> applicant accepts -> contact revealed -> bank application"
   const applicant = await (await browser.newContext()).newPage();
   watch(applicant);
   await demoLogin(applicant, /Borderline/);
-  await expect(applicant.getByText("Rule-Based Policy Decision").first()).toBeVisible();
+  await expect(applicant.getByText("Your AltCredit score").first()).toBeVisible();
   const uid = await applicant.evaluate(() => JSON.parse(sessionStorage.getItem("altcredit.session")!).user_id);
 
   await lender.goto(`/lender/candidates/${uid}`);
@@ -79,11 +79,11 @@ test("lender offer -> applicant accepts -> contact revealed -> bank application"
   await expect(applicant.getByRole("button", { name: "Apply with the bank" }).first()).toBeVisible();
 
   await lender.goto(`/lender/candidates/${uid}`);
-  await expect(lender.getByText("Contact details unlock")).toHaveCount(0);
+  await expect(lender.getByText("Contact unlocks")).toHaveCount(0);
   await expect(lender.locator("h1")).not.toContainText("*");
 
   await applicant.getByRole("button", { name: "Apply with the bank" }).first().click();
-  await expect(applicant.getByRole("heading", { name: "Bank applications" })).toBeVisible();
+  await expect(applicant.getByRole("heading", { name: "My applications" })).toBeVisible();
   await expect(applicant.locator("tbody tr").first()).toContainText(/SUBMITTED|UNDER REVIEW|APPROVED|MANUAL REVIEW|DECLINED/);
   await applicant.getByRole("button", { name: "Check status" }).first().click();
   expect(errors).toEqual([]);

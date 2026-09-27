@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { HBars, Histogram } from "../../components/Charts";
+import { CalibrationChart, CHART, DistributionChart, DonutChart, HBars } from "../../components/Charts";
 import { ErrorBox, Loading, Stat } from "../../components/ui";
 import { useApi } from "../../hooks/useApi";
+import type { PolicySnapshot } from "../../types";
 import { AGREEMENT_LABEL, pct } from "../../utils/format";
 
 interface A {
@@ -57,13 +58,15 @@ export default function Analytics() {
   const [pop, setPop] = useState<"live" | "historical" | "all_pool">("live");
   const { data: a, error, loading, reload } = useApi<A>(`/api/lenders/analytics?population=${pop}`);
   const m = useApi<Metrics>("/api/ml/metrics");
+  const policy = useApi<PolicySnapshot>("/api/policy");
+  const cut = policy.data?.lender_default_score_range?.[0] ?? 650;
   const products = Object.fromEntries((a?.product_eligibility ?? []).map((p) => [p.product_id, p.product_name]));
   return (
     <div className="stack">
       <div className="page-head">
         <div>
-          <h1>Analytics</h1>
-          <p>Portfolio view of the synthetic population: policy scores, ML validation, product reach and offer behaviour.</p>
+          <h1>Portfolio analytics</h1>
+          <p>Scores, product reach and how the ML check lines up with policy.</p>
         </div>
         <div className="tabs" style={{ margin: 0, border: 0 }}>
           {([["live", "Live applicants"], ["historical", "Historical (with outcomes)"], ["all_pool", "Whole candidate pool"]] as const).map(([k, l]) => (
@@ -83,13 +86,13 @@ export default function Analytics() {
           </div>
           <div className="grid g2">
             <div className="card">
-              <div className="card-head"><div><h2>Policy score distribution</h2><p>50-point bins, 0–1000</p></div></div>
-              <div className="card-body"><Histogram bins={a.score_distribution} /></div>
+              <div className="card-head"><div><h2>Policy score distribution</h2><p>Applicants per 50-point band</p></div></div>
+              <div className="card-body"><DistributionChart bins={a.score_distribution} cutoff={{ at: cut, label: `${cut} cut-off` }} /></div>
             </div>
             <div className="card">
               <div className="card-head"><h2>Risk tiers</h2></div>
               <div className="card-body">
-                <HBars items={a.tier_distribution.map((t) => ({ label: `${t.tier} ${t.name}`, value: t.count, color: t.color }))} format={(v) => v.toLocaleString("en-IN")} />
+                <DonutChart items={a.tier_distribution.map((t) => ({ label: `${t.tier} ${t.name}`, value: t.count, color: t.color }))} />
               </div>
             </div>
             <div className="card">
@@ -101,7 +104,7 @@ export default function Analytics() {
             <div className="card ml-card">
               <div className="card-head"><div><h2>ML default probability</h2><p>Validation layer only</p></div></div>
               <div className="card-body stack">
-                <Histogram bins={a.ml_pd_distribution} color="var(--ml)" format={(b) => `${pct(b.from, 0)}–${pct(b.to, 0)}`} />
+                <DistributionChart bins={a.ml_pd_distribution} color={CHART.ml} height={170} format={(b) => `${pct(b.from, 0)}–${pct(b.to, 0)}`} tickFormat={(b) => pct(b.from, 0)} />
                 <HBars items={Object.entries(a.agreement).map(([k, v]) => ({ label: AGREEMENT_LABEL[k] ?? k, value: v, color: "var(--ml)" }))} format={(v) => v.toLocaleString("en-IN")} />
               </div>
             </div>
@@ -119,12 +122,6 @@ export default function Analytics() {
                 <HBars items={a.offer_acceptance_historical.map((h) => ({ label: products[h.product_id] ?? h.product_id, sub: `${h.offers} offers`, value: h.acceptance_rate, color: "var(--pos)" }))} format={(v) => pct(v)} />
                 <div className="divider" />
                 <div className="small muted">Mean predicted acceptance (Case 2 model): {Object.entries(a.propensity_mean).map(([k, v]) => `${products[k] ?? k} ${pct(v)}`).join(" · ")}</div>
-              </div>
-            </div>
-            <div className="card">
-              <div className="card-head"><h2>What-If simulator usage</h2></div>
-              <div className="card-body">
-                <HBars items={a.simulator_usage.map((s) => ({ label: s.scenario_type, sub: s.source, value: s.n }))} format={(v) => v.toLocaleString("en-IN")} />
               </div>
             </div>
           </div>
@@ -152,8 +149,8 @@ function ModelBlock({ title, m, extra }: { title: string; m: ModelMetrics; extra
         <dt>Confusion matrix</dt><dd className="mono">TP {cm.tp} · FP {cm.fp} · FN {cm.fn} · TN {cm.tn}</dd>
         <dt>Base rate · n</dt><dd>{pct(t.base_rate)} · {t.n.toLocaleString("en-IN")}</dd>
       </dl>
-      <div className="xs muted">Calibration by decile: observed rate (bar) vs mean predicted (label)</div>
-      <HBars items={t.calibration_deciles.map((c) => ({ label: `D${c.decile} · pred ${pct(c.mean_predicted)}`, value: c.observed_rate, color: "var(--ml)" }))} format={(v) => pct(v)} />
+      <div className="xs muted">Calibration by risk decile: predicted vs observed rate</div>
+      <CalibrationChart deciles={t.calibration_deciles} />
       <div className="xs muted">Largest coefficients (standardised): {m.coefficients.slice(0, 5).map((c) => `${c.label ?? c.feature} ${c.coef > 0 ? "+" : ""}${c.coef.toFixed(2)}`).join(" · ")}</div>
     </div>
   );
@@ -165,7 +162,7 @@ function ModelCard({ m }: { m: Metrics }) {
       <div className="card-head">
         <div>
           <h2>Model validation</h2>
-          <p>Interpretable logistic regressions evaluated on a temporal holdout. Loaded at startup; never retrained per request.</p>
+          <p>Logistic regressions, evaluated on a temporal holdout.</p>
         </div>
       </div>
       <div className="card-body grid g2">

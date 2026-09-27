@@ -25,7 +25,7 @@ export default function ApplicationsReceived() {
       <div className="page-head">
         <div>
           <h1>Applications received</h1>
-          <p>Applicants who applied for your products through the partner bank. Status comes from the bank and refreshes each time you open or refresh this page.</p>
+          <p>Applicants who applied for your products. Status comes live from the bank.</p>
         </div>
         <button className="btn" onClick={reload}>Refresh</button>
       </div>

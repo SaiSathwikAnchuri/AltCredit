@@ -23,7 +23,7 @@ export function MLValidationPanel({ ml, policy, audience = "user" }: { ml: MLVal
       <div className="card-head">
         <div>
           <MLLabel />
-          <p>Case 1 probability-of-default model ({ml.model_version}). Secondary check only; it never overrides the policy score.</p>
+          <p>{audience === "lender" ? `Case 1 PD model (${ml.model_version}). Secondary check; never overrides the policy score.` : "An independent check. It never changes your score."}</p>
         </div>
         {ag && (
           <Badge tone={AGREEMENT_TONE[ag.status] ?? ""} dot>
@@ -45,7 +45,7 @@ export function MLValidationPanel({ ml, policy, audience = "user" }: { ml: MLVal
             <div className="big-num" style={{ fontSize: 28, color: "var(--ml)" }}>
               {ml.ml_risk_score}
             </div>
-            <div className="xs muted">= 1000 × (1 − PD); not the credit score</div>
+            {audience === "lender" && <div className="xs muted">= 1000 × (1 − PD)</div>}
           </div>
           <div>
             <div className="xs muted">Policy score (authoritative)</div>
@@ -66,9 +66,7 @@ export function MLValidationPanel({ ml, policy, audience = "user" }: { ml: MLVal
                   : ". Route to manual review; eligibility still follows the policy score."}
               </div>
             )}
-            <div className="xs muted" style={{ marginTop: 4 }}>
-              Policy decision changed by ML: <b>{ag.rule_changed ? "yes" : "no"}</b>
-            </div>
+
           </div>
         )}
         {!ml.confident && (
@@ -79,16 +77,18 @@ export function MLValidationPanel({ ml, policy, audience = "user" }: { ml: MLVal
         <div className="stack" style={{ gap: 12 }}>
           <div>
             <h3 style={{ marginBottom: 6 }}>Raises estimated risk</h3>
-            <SignalList items={ml.risk_increasing_signals ?? []} tone="neg" />
+            <SignalList items={(ml.risk_increasing_signals ?? []).slice(0, audience === "lender" ? 8 : 4)} tone="neg" />
           </div>
           <div>
             <h3 style={{ marginBottom: 6 }}>Lowers estimated risk</h3>
-            <SignalList items={ml.risk_reducing_signals ?? []} tone="pos" />
+            <SignalList items={(ml.risk_reducing_signals ?? []).slice(0, audience === "lender" ? 8 : 4)} tone="pos" />
           </div>
         </div>
-        <div className="xs muted">
-          Holdout AUC {ml.holdout_auc?.toFixed(3)} on a temporal split. Contributions are logistic-regression coefficient × standardised value (log-odds).
-        </div>
+        {audience === "lender" && (
+          <div className="xs muted">
+            Holdout AUC {ml.holdout_auc?.toFixed(3)} (temporal split). Contributions are coefficient × standardised value (log-odds).
+          </div>
+        )}
       </div>
     </div>
   );

@@ -14,15 +14,14 @@ export interface UserCtx {
 export const useUser = () => useOutletContext<UserCtx>();
 
 const NAV = [
-  ["/app", "Dashboard", true],
-  ["/app/score", "Score details", false],
-  ["/app/products", "Products", false],
+  ["/app", "Home", true],
+  ["/app/score", "My score", false],
   ["/app/what-if", "What-If", false],
-  ["/app/target", "Target", false],
+  ["/app/target", "Goal planner", false],
+  ["/app/products", "Products", false],
   ["/app/offers", "Offers", false],
   ["/app/applications", "Applications", false],
   ["/app/report", "Report", false],
-  ["/app/profile", "Profile", false],
 ] as const;
 
 export function Brand({ sub }: { sub?: string }) {
@@ -46,7 +45,7 @@ export default function UserLayout() {
   if (!session) return <Navigate to="/login" replace />;
   if (session.role !== "user" || !uid) return <Navigate to={session.role === "lender" ? "/lender" : "/admin"} replace />;
   return (
-    <div>
+    <div className="theme-user">
       <header className="topbar">
         <div className="topbar-inner">
           <a href="/app" onClick={(e) => { e.preventDefault(); nav("/app"); }} style={{ textDecoration: "none" }}>
@@ -60,7 +59,10 @@ export default function UserLayout() {
             ))}
           </nav>
           <div className="user-chip">
-            <span>{session.display_name}</span>
+            <NavLink to="/app/profile" title="Profile and data" style={{ display: "flex", alignItems: "center", gap: 8, color: "var(--ink-2)", fontWeight: 600 }}>
+              <span className="avatar">{(session.display_name || "?").trim().charAt(0).toUpperCase()}</span>
+              <span className="hide-sm">{session.display_name}</span>
+            </NavLink>
             <button className="btn btn-sm" onClick={() => { logout(); nav("/login"); }}>
               Sign out
             </button>
@@ -72,9 +74,6 @@ export default function UserLayout() {
         {loading && !data && <Loading label="Computing your policy score…" />}
         {data && <Outlet context={{ profile: data, userId: uid, reload, setProfile: setData } satisfies UserCtx} />}
       </main>
-      <footer className="page xs muted" style={{ paddingTop: 0 }}>
-        Synthetic demo. All applicants, lenders and bank responses are simulated; no real bureau or banking API is called.
-      </footer>
     </div>
   );
 }

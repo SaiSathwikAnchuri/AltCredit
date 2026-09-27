@@ -8,7 +8,7 @@ export function DataQualityPanel({ dq, weakId, blocked }: { dq: DataQuality; wea
       <div className="card-head">
         <div>
           <h2>Data quality</h2>
-          <p>How complete the data behind this score is. Missing data never earns points and is never invented.</p>
+          <p>How complete the data behind this score is.</p>
         </div>
         <Badge tone={DQ_TONE[dq.status]} dot>
           {dq.status}
@@ -31,7 +31,7 @@ export function DataQualityPanel({ dq, weakId, blocked }: { dq: DataQuality; wea
           <ul className="list small">
             {dq.flags.map((f) => (
               <li key={f.code}>
-                <span className="mono">{f.code}</span> {f.message}
+                {f.message ?? f.code}
               </li>
             ))}
           </ul>

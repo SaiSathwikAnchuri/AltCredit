@@ -43,11 +43,8 @@ export default function Target() {
     <div className="stack">
       <div className="page-head">
         <div>
-          <h1>Reach a target product</h1>
-          <p>
-            We search for the smallest realistic change that gets your policy score to a product's minimum, and verify every plan by re-scoring it with the real rules.
-            Past behaviour, age and location are never part of a plan.
-          </p>
+          <h1>Goal planner</h1>
+          <p>Pick a product and we'll find the smallest set of changes that gets you there.</p>
         </div>
       </div>
       <div className="card card-pad row">
@@ -120,7 +117,7 @@ function Plan({ cf }: { cf: Counterfactual }) {
                     <li key={s.lever}>
                       <div>
                         <b>{s.action}</b>
-                        <div className="xs muted">effort: {EFFORT[s.effort] ?? s.effort}</div>
+                        <div className="xs muted">{EFFORT[s.effort] ?? s.effort} effort</div>
                       </div>
                       <span className="num pos">{signed(s.expected_points)}</span>
                     </li>
@@ -130,20 +127,18 @@ function Plan({ cf }: { cf: Counterfactual }) {
                 <div className="callout pos">No action needed: keep your current habits.</div>
               )}
               {!!cf.time_effect_points && (
-                <div className="small muted">
-                  {signed(cf.time_effect_points)} points come from time passing alone (for example job tenure growing or an old late payment leaving the window).
-                  Points per step are measured by removing that step from the plan.
-                </div>
+                <div className="small muted">{signed(cf.time_effect_points)} points come from time passing alone.</div>
               )}
               {cf.factor_changes && cf.factor_changes.length > 0 && (
                 <div className="table-wrap">
                   <table className="table">
                     <thead>
-                      <tr><th>Rule</th><th className="r">Now</th><th className="r">Then</th><th>Result</th></tr>
+                      <tr><th>#</th><th>Rule that moves</th><th className="r">Now</th><th className="r">Then</th><th>Result</th></tr>
                     </thead>
                     <tbody>
-                      {cf.factor_changes.map((f) => (
+                      {[...cf.factor_changes].sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta)).map((f, i) => (
                         <tr key={f.id}>
+                          <td><span className="infl-rank">{i + 1}</span></td>
                           <td><b>{f.id}</b> {f.name}</td>
                           <td className="r num">{f.from}</td>
                           <td className="r num">{f.to}</td>
@@ -154,7 +149,7 @@ function Plan({ cf }: { cf: Counterfactual }) {
                   </table>
                 </div>
               )}
-              <div className="xs muted">✓ {cf.verification} ({cf.evaluations} scenarios evaluated.)</div>
+              <div className="xs muted">✓ Verified by re-scoring the plan with the real rules.</div>
             </>
           )}
           {cf.status === "UNREACHABLE_12M" && cf.best_reachable_score !== undefined && (
@@ -165,9 +160,9 @@ function Plan({ cf }: { cf: Counterfactual }) {
           )}
         </div>
       </div>
-      <div className="grid g2">
+      {cf.milestones.length > 0 && (
         <div className="card card-pad stack" style={{ gap: 8 }}>
-          <h3>Milestones that happen on their own</h3>
+          <h3>Coming up on its own</h3>
           {cf.milestones.length ? (
             <div className="timeline">
               {cf.milestones.map((m, i) => (
@@ -182,12 +177,7 @@ function Plan({ cf }: { cf: Counterfactual }) {
           )}
           <div className="xs muted">Assumes bills keep being paid on time.</div>
         </div>
-        <div className="card card-pad stack" style={{ gap: 8 }}>
-          <h3>Never used in a plan</h3>
-          <div className="small muted">{cf.immutable_never_changed.join(" · ")}</div>
-          <div className="xs muted">Plans never ask you to earn more, buy a home or open new credit.</div>
-        </div>
-      </div>
+      )}
     </div>
   );
 }

@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { CashflowChart } from "../../components/Charts";
 import { DataQualityPanel } from "../../components/DataQualityPanel";
 import { FactorBreakdown } from "../../components/FactorBreakdown";
+import { FactorInfluence } from "../../components/FactorInfluence";
 import { MLValidationPanel } from "../../components/MLValidationPanel";
 import { Badge, ErrorBox, Loading, PolicyLabel, TierBadge, useToast } from "../../components/ui";
 import { useApi } from "../../hooks/useApi";
@@ -59,7 +60,7 @@ export default function CandidateDetail({ base = "/lender" }: { base?: string })
           <p>
             <span className="mono">{p.user_id}</span> · {p.contact?.phone} · {p.contact?.locality}
           </p>
-          {p.contact?.masked && <p className="xs">Contact details unlock when the applicant accepts one of your offers.</p>}
+          {p.contact?.masked && <p className="xs">Contact unlocks when they accept your offer or apply for your product.</p>}
         </div>
         {isLender && (
           <button className="btn btn-primary" disabled={!ownEligible.length || p.policy.weak_id} onClick={() => { setOffer(offerDefaults(ownEligible)); setErr(null); }}
@@ -93,7 +94,9 @@ export default function CandidateDetail({ base = "/lender" }: { base?: string })
         </div>
       </div>
 
-      <div className="grid" style={{ gridTemplateColumns: "minmax(0, 3fr) minmax(0, 2fr)" }}>
+      <div className="grid g-main">
+        <div className="stack">
+        <FactorInfluence policy={p.policy} title="Decision drivers" sub="Rules ranked by how much they moved this applicant's policy score." />
         <div className="card">
           <div className="card-head">
             <div>
@@ -102,6 +105,7 @@ export default function CandidateDetail({ base = "/lender" }: { base?: string })
             </div>
           </div>
           <div className="card-body"><FactorBreakdown policy={p.policy} /></div>
+        </div>
         </div>
         <div className="stack">
           <MLValidationPanel ml={p.ml} policy={p.policy} audience="lender" />

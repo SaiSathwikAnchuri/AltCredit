@@ -133,13 +133,12 @@ export default function WhatIf() {
         <div>
           <h1>What-If simulator</h1>
           <p>
-            Try a change and see how the same 14 rules would score you in the future. Simulations are hypothetical: your history and your stored score are never
-            modified. Current policy score: <b className="num">{profile.policy.score}</b>.
+            Try a change and see how your score would move. Nothing here touches your real score (today: <b className="num">{profile.policy.score}</b>).
           </p>
         </div>
       </div>
 
-      <h2>Official scenarios</h2>
+      <h2>Quick scenarios</h2>
       {presets.error && <ErrorBox error={presets.error} onRetry={presets.reload} />}
       {presets.loading && <Loading />}
       {presets.data && (
@@ -151,10 +150,6 @@ export default function WhatIf() {
                 <span className="xs muted">{ps.horizon} mo</span>
               </div>
               <p className="small">{ps.description}</p>
-              <div className="xs muted">
-                Rules affected: {ps.factors.join(", ")}
-                {ps.official_example && <> · Use-case example: {ps.official_example}</>}
-              </div>
               <div>
                 <button className="btn btn-sm btn-primary" disabled={running !== null} onClick={() => run(k, ps.title, ps.scenarios, ps.horizon, k)}>
                   {running === k ? "Simulating…" : "Simulate for me"}
@@ -169,7 +164,7 @@ export default function WhatIf() {
         <div className="card-head">
           <div>
             <h2>Build your own scenario</h2>
-            <p>Combine up to six changes and choose how far ahead to look.</p>
+            <p>Pick up to six changes and how far ahead to look.</p>
           </div>
         </div>
         <div className="card-body stack">
@@ -177,7 +172,7 @@ export default function WhatIf() {
             {CUSTOM_DEFS.map((d) => {
               const c = custom[d.type];
               return (
-                <div key={d.type} className="card card-pad stack" style={{ gap: 8, boxShadow: "none", borderColor: c.on ? "var(--brand)" : undefined }}>
+                <div key={d.type} className={`card card-pad stack sim-card ${c.on ? "on" : ""}`} style={{ gap: 8, boxShadow: c.on ? undefined : "none" }}>
                   <label className="checkbox">
                     <input type="checkbox" checked={c.on} onChange={(e) => setCustom({ ...custom, [d.type]: { ...c, on: e.target.checked } })} />
                     <b>{d.label}</b>
@@ -217,9 +212,7 @@ function SimResult({ r, title }: { r: SimulationResult; title: string }) {
       <div className="card-head">
         <div>
           <h2>{title}</h2>
-          <p>
-            Hypothetical projection to {date(r.simulated_as_of)} ({r.horizon_months} month{r.horizon_months === 1 ? "" : "s"}). Nothing was saved to your history.
-          </p>
+          <p>Projected to {date(r.simulated_as_of)} ({r.horizon_months} month{r.horizon_months === 1 ? "" : "s"} ahead)</p>
         </div>
         <Badge tone="brand">Simulation</Badge>
       </div>
@@ -246,9 +239,8 @@ function SimResult({ r, title }: { r: SimulationResult; title: string }) {
             Change vs today: <b className={`num ${tone(r.delta_vs_current)}`}>{signed(r.delta_vs_current)}</b>
           </span>
           <span>
-            Effect of the change itself (vs doing nothing): <b className={`num ${tone(r.delta_vs_baseline)}`}>{signed(r.delta_vs_baseline)}</b>
+            Effect of the change itself: <b className={`num ${tone(r.delta_vs_baseline)}`}>{signed(r.delta_vs_baseline)}</b>
           </span>
-          {r.raw_delta_vs_current !== r.delta_vs_current && <span className="xs muted">raw change {signed(r.raw_delta_vs_current)} before the 0–1000 cap</span>}
         </div>
         {r.tier_change && <div className="callout">Risk tier: {r.tier_change}</div>}
         {r.products_gained.length > 0 && <div className="callout pos">Unlocks: {r.products_gained.map((p) => p.product_name).join(", ")}</div>}
@@ -258,6 +250,7 @@ function SimResult({ r, title }: { r: SimulationResult; title: string }) {
             <table className="table">
               <thead>
                 <tr>
+                  <th>#</th>
                   <th>Rule</th>
                   <th className="r">Today</th>
                   <th className="r">No change</th>
@@ -267,8 +260,9 @@ function SimResult({ r, title }: { r: SimulationResult; title: string }) {
                 </tr>
               </thead>
               <tbody>
-                {r.changed_factors.map((f) => (
+                {[...r.changed_factors].sort((a, b) => Math.abs(b.delta_vs_baseline) - Math.abs(a.delta_vs_baseline)).map((f, i) => (
                   <tr key={f.id}>
+                    <td><span className="infl-rank" style={i === 0 ? { background: "var(--brand)", color: "#fff", borderColor: "var(--brand)" } : undefined}>{i + 1}</span></td>
                     <td>
                       <b>{f.id}</b> {f.name}
                     </td>
@@ -290,10 +284,7 @@ function SimResult({ r, title }: { r: SimulationResult; title: string }) {
             {r.notes.map((n) => <li key={n}>{n}</li>)}
           </ul>
         )}
-        <div className="xs muted">
-          Your projected score depends on where you start: rules are banded, so a change moves your score only when it crosses a band edge, and the 0–1000 cap applies.
-          This is why results can differ from the use-case's illustrative figures.
-        </div>
+        {r.changed_factors.length > 1 && <div className="xs muted">Rules are ranked by how much this scenario moves them. Scores move only when a rule crosses into a new band.</div>}
       </div>
     </div>
   );
