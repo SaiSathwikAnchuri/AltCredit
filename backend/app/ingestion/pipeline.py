@@ -328,7 +328,8 @@ def ingest_upload(con, user_id: str, profile: dict, transactions: pd.DataFrame, 
     if profile.get("employment_status") and months_job is not None:
         start = (pd.Timestamp(as_of) - pd.DateOffset(months=int(months_job))).strftime("%Y-%m-%d")
         con.execute("INSERT INTO employment_spells VALUES (?,?,?,?,?,?,?)", (f"SPL_{user_id}", user_id,
-                    EMPLOYMENT_STATUS_MAP.get(str(profile["employment_status"]).lower(), profile["employment_status"]), "declared", start, None,
+                    EMPLOYMENT_STATUS_MAP.get(str(profile["employment_status"]).lower(), profile["employment_status"]),
+                    profile.get("employment_source", "declared"), start, None,
                     _clean(r.get("monthly_income"))))
     if profile.get("housing_status"):
         months_res = int(profile.get("months_at_address") or 0)
@@ -352,7 +353,7 @@ def parse_uploaded_table(content: bytes, filename: str) -> pd.DataFrame:
         return pd.DataFrame(data if isinstance(data, list) else data.get("transactions", []))
     if name.endswith(".csv"):
         return pd.read_csv(io.BytesIO(content))
-    raise ValueError("unsupported file type: upload CSV or JSON (PDF/OCR statements are not supported in this prototype)")
+    raise ValueError("unsupported file type: upload a CSV or JSON file, or a statement as PDF, PNG or JPG")
 
 
 # ---------------------------------------------------------------------------

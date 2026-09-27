@@ -11,6 +11,9 @@ httpx==0.28.1
 python-multipart==0.0.32
 pymysql==1.1.1
 cryptography==43.0.3
+# bank statement documents: PDF text + OCR for scans/photos (pip-only, no system Tesseract)
+pymupdf==1.28.2
+rapidocr-onnxruntime==1.4.4
 # tests
 pytest==9.1.1
 pypdf==6.19.0

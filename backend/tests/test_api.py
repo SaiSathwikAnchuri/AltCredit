@@ -181,3 +181,25 @@ def test_bank_rejects_missing_key(env):
     import mockbank.app as bank_mod
     bc = TestClient(bank_mod.app)
     assert bc.post("/bank/preapproval", json={}).status_code in (401, 403)
+
+
+def test_register_with_statement_pdf_and_no_profile(env):
+    """Sign-up without the 'About you' form: the statement PDF is read, employment and housing inferred, the rest left missing."""
+    import pandas as pd
+    from tests.test_documents import statement_pdf
+    pdf = statement_pdf("cols", pd.read_csv(SAMPLE))
+    r = env.post("/api/auth/register", data={"username": "pdfperson", "password": PASSWORD, "profile": json.dumps({"display_name": "Pdf Person"})},
+                 files={"transactions": ("statement.pdf", pdf, "application/pdf")})
+    assert r.status_code == 200, r.text
+    out = r.json()
+    assert out["document"]["rows_read"] == 144 and out["document"]["ocr_pages"] == 0
+    assert out["derived_profile"]["fields"]["employment_status"] == "salaried"
+    assert out["ingestion"]["stats"]["transactions"] == 144
+    s = out["session"]
+    prof = env.get(f"/api/users/{s['user_id']}/score", headers=auth(s["token"])).json()
+    f = {x["id"]: x for x in prof["policy"]["factors"]}
+    assert f["1.1"]["points"] > 0 and f["1.2"]["points"] > 0      # inferred from salary credits and rent payments
+    assert f["1.4"]["points"] == 0                                 # education is not asked, so it scores as missing
+    bad = env.post("/api/auth/register", data={"username": "pdfbad", "password": PASSWORD},
+                   files={"transactions": ("s.pdf", b"%PDF-1.4 broken", "application/pdf")})
+    assert bad.status_code == 422

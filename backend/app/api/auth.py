@@ -6,8 +6,10 @@ import os
 import uuid
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi.concurrency import run_in_threadpool
 
 from app.database.db import audit, get_conn, now_iso, one, rows
+from app.ingestion.documents import DOCUMENT_EXTENSIONS, derive_profile, parse_statement_document
 from app.ingestion.pipeline import ingest_upload, parse_uploaded_table
 from app.schemas import DemoLoginIn, LoginIn
 from app.security.auth import authenticate, current_principal, hash_password, issue_token
@@ -69,22 +71,43 @@ def me(p: dict = Depends(current_principal)):
     return acc
 
 
-@router.post("/register", summary="Create a user profile and upload transactions (CSV/JSON); the rule engine scores it immediately")
+MAX_DOCUMENT_BYTES = 25 * 1024 * 1024
+
+
+@router.post("/register", summary="Create a user profile from a bank statement (CSV/JSON, or a PDF/photo read with OCR); scored immediately")
 async def register(username: str = Form(..., min_length=3, max_length=40), password: str = Form(..., min_length=8),
-                   profile: str = Form(..., description="JSON: age, education_level, employment_status, monthly_income, city_tier, "
-                                                        "housing_status, months_in_current_job, months_at_address, monthly_rent, display_name"),
-                   transactions: UploadFile = File(...), bills: UploadFile | None = File(default=None)):
+                   profile: str = Form("{}", description="Optional JSON: display_name, plus any declared age, education_level, "
+                                                         "employment_status, monthly_income, city_tier, housing_status, months_in_current_job, "
+                                                         "months_at_address, monthly_rent. Employment and housing not given are inferred "
+                                                         "from the statement where it shows them."),
+                   transactions: UploadFile = File(..., description="Statement: CSV/JSON, or PDF/PNG/JPG (text PDFs are read directly, "
+                                                                     "scans and photos with OCR)"),
+                   bills: UploadFile | None = File(default=None)):
     con = get_conn()
     if one(con, "SELECT 1 AS x FROM auth_accounts WHERE username=?", (username,)):
         raise HTTPException(409, "username already taken")
+    fname = transactions.filename or "upload.csv"
+    document = None
     try:
-        prof = json.loads(profile)
-        txn = parse_uploaded_table(await transactions.read(), transactions.filename or "upload.csv")
+        prof = json.loads(profile or "{}")
+        raw = await transactions.read()
+        if fname.lower().endswith(DOCUMENT_EXTENSIONS):
+            if len(raw) > MAX_DOCUMENT_BYTES:
+                raise ValueError("document is larger than 25 MB")
+            txn, document = await run_in_threadpool(parse_statement_document, raw, fname)   # OCR is CPU-bound
+        else:
+            txn = parse_uploaded_table(raw, fname)
         bl = parse_uploaded_table(await bills.read(), bills.filename or "bills.csv") if bills is not None else None
     except (ValueError, json.JSONDecodeError) as e:
         raise HTTPException(422, f"could not read upload: {e}")
     if txn.empty:
         raise HTTPException(422, "transaction file is empty")
+    derived = derive_profile(txn)
+    for k, v in derived["fields"].items():      # values the applicant declared win; the statement fills the rest
+        if prof.get(k) in (None, ""):
+            prof[k] = v
+            if k == "employment_status":
+                prof["employment_source"] = "statement"
     user_id = "USR_N" + uuid.uuid4().hex[:6].upper()
     try:
         result = ingest_upload(con, user_id, prof, txn, bl)
@@ -96,5 +119,6 @@ async def register(username: str = Form(..., min_length=3, max_length=40), passw
     con.commit()
     profile_out = build_profile(con, user_id, persist=True, trigger="onboarding", actor=username)
     acc = one(con, "SELECT * FROM auth_accounts WHERE username=?", (username,))
-    return {"session": _session(acc), "ingestion": result, "score": profile_out["policy"]["score"],
+    return {"session": _session(acc), "ingestion": result, "document": document, "derived_profile": derived,
+            "score": profile_out["policy"]["score"],
             "tier": profile_out["policy"]["tier"], "timing_ms": profile_out["timing_ms"]}

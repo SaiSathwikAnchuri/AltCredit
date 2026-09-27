@@ -229,3 +229,25 @@ table.table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 
 .login-side .brand { color: #fff; }
 .login-side .brand small { color: #94a3b8; }
+
+/* ---------- file upload boxes (sign-up) ---------- */
+.filedrop-wrap { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.filedrop-label { font-size: 13px; font-weight: 550; color: var(--ink-2); }
+.filedrop-label .req { font-size: 11px; font-weight: 600; color: var(--brand); background: var(--brand-soft); border-radius: 999px; padding: 1px 7px; margin-left: 4px; }
+.filedrop-label .muted { font-weight: 500; }
+.filedrop { width: 100%; min-height: 128px; border: 1.5px dashed var(--line-2); border-radius: var(--radius); background: var(--sunk);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; padding: 18px 16px;
+  color: var(--muted); font: inherit; font-size: 14px; text-align: center; cursor: pointer; transition: border-color .15s, background .15s; }
+.filedrop:hover, .filedrop.over { border-color: var(--brand); background: var(--brand-soft); color: var(--brand-ink); }
+.filedrop:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+.filedrop-cta { color: var(--brand); }
+.filedrop-chosen { flex-direction: row; justify-content: flex-start; min-height: 0; border-style: solid; border-color: var(--line); background: var(--surface);
+  cursor: default; gap: 12px; text-align: left; }
+.filedrop-chosen:hover { border-color: var(--line); background: var(--surface); color: var(--muted); }
+.filedrop-ext { flex: none; width: 44px; height: 44px; border-radius: 8px; background: var(--brand-soft); color: var(--brand);
+  display: grid; place-items: center; font-size: 11px; font-weight: 700; letter-spacing: .02em; }
+.filedrop-name { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.filedrop-name b { color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.filedrop-x { flex: none; width: 30px; height: 30px; border: 0; border-radius: 6px; background: transparent; color: var(--muted); font-size: 20px; line-height: 1; cursor: pointer; }
+.filedrop-x:hover { background: var(--neg-soft); color: var(--neg); }
+.filedrop-err { color: var(--neg); }

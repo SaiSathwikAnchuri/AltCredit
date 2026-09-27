@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import FileDrop from "../components/FileDrop";
 import { ErrorBox } from "../components/ui";
 import { useAuth } from "../hooks/useAuth";
 import { api, type Session } from "../services/api";
@@ -8,27 +9,18 @@ import { Brand } from "../layouts/UserLayout";
 interface RegisterOut {
   session: Session;
   ingestion: { stats: Record<string, unknown>; issues: { check_code: string; severity: string; message: string; count: number }[] };
+  document: { pages: number; text_pages: number; ocr_pages: number; rows_read: number; uncategorised: number; date_range: [string, string] } | null;
+  derived_profile: { fields: Record<string, string | number>; notes: Record<string, string> };
   score: number;
   tier: { name: string };
 }
 
+const DERIVED_LABEL: Record<string, string> = { employment: "Employment", housing: "Housing", income: "Income", not_collected: "Not asked" };
+
 export default function Register() {
   const { adopt } = useAuth();
   const nav = useNavigate();
-  const [f, setF] = useState({
-    username: "",
-    password: "",
-    display_name: "",
-    age: "28",
-    education_level: "Bachelor",
-    employment_status: "salaried",
-    monthly_income: "32000",
-    city_tier: "1",
-    housing_status: "rent",
-    monthly_rent: "9000",
-    months_in_current_job: "18",
-    months_at_address: "14",
-  });
+  const [f, setF] = useState({ username: "", password: "", display_name: "" });
   const [txn, setTxn] = useState<File | null>(null);
   const [bills, setBills] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
@@ -39,7 +31,7 @@ export default function Register() {
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     if (!txn) {
-      setErr("Upload a transaction file (CSV or JSON).");
+      setErr("Upload your bank statement (PDF, photo, CSV or JSON).");
       return;
     }
     setBusy(true);
@@ -47,21 +39,7 @@ export default function Register() {
     const form = new FormData();
     form.append("username", f.username);
     form.append("password", f.password);
-    form.append(
-      "profile",
-      JSON.stringify({
-        display_name: f.display_name || f.username,
-        age: Number(f.age),
-        education_level: f.education_level,
-        employment_status: f.employment_status,
-        monthly_income: Number(f.monthly_income),
-        city_tier: Number(f.city_tier),
-        housing_status: f.housing_status,
-        monthly_rent: f.housing_status === "rent" ? Number(f.monthly_rent) : null,
-        months_in_current_job: f.employment_status === "student" || f.employment_status === "unemployed" ? null : Number(f.months_in_current_job),
-        months_at_address: Number(f.months_at_address),
-      }),
-    );
+    form.append("profile", JSON.stringify({ display_name: f.display_name || f.username }));
     form.append("transactions", txn);
     if (bills) form.append("bills", bills);
     try {
@@ -82,7 +60,7 @@ export default function Register() {
             <Brand />
           </Link>
           <h1 style={{ marginTop: 16 }}>Create your AltCredit profile</h1>
-          <p>Tell us about yourself and upload 6–12 months of bank transactions. The rule engine scores you immediately.</p>
+          <p>Upload 6–12 months of your bank statement. We read it (with OCR for scans and photos), and the rule engine scores you immediately.</p>
         </div>
       </div>
       {result ? (
@@ -92,6 +70,22 @@ export default function Register() {
             Policy score <b className="num">{result.score}</b> / 1000 ({result.tier.name}). {String(result.ingestion.stats.transactions)} transactions and{" "}
             {String(result.ingestion.stats.obligations)} bills were read; score as of {String(result.ingestion.stats.as_of)}.
           </p>
+          {result.document && (
+            <p className="small muted">
+              Read {result.document.pages} page{result.document.pages === 1 ? "" : "s"}
+              {result.document.ocr_pages > 0 ? ` (${result.document.ocr_pages} with OCR)` : " as text"}: {result.document.rows_read} transactions
+              from {result.document.date_range[0]} to {result.document.date_range[1]}
+              {result.document.uncategorised > 0 && `; ${result.document.uncategorised} could not be categorised and are counted as "Other"`}.
+            </p>
+          )}
+          <div className="callout small">
+            <b>What we took from your statement</b>
+            <ul className="list">
+              {Object.entries(result.derived_profile.notes).map(([k, v]) => (
+                <li key={k}><b>{DERIVED_LABEL[k] ?? k}:</b> {v}</li>
+              ))}
+            </ul>
+          </div>
           {result.ingestion.issues.length > 0 && (
             <div className="callout warn small">
               <b>Validation notes</b>
@@ -121,62 +115,22 @@ export default function Register() {
             </div>
           </div>
           <div className="card card-pad stack">
-            <h2>About you</h2>
-            <div className="grid g3">
-              <label className="field">Age<input type="number" min={18} max={80} value={f.age} onChange={set("age")} required /></label>
-              <label className="field">
-                Education
-                <select value={f.education_level} onChange={set("education_level")}>
-                  {["Below High School", "High School", "Diploma", "Bachelor", "Master", "PhD"].map((x) => <option key={x}>{x}</option>)}
-                </select>
-              </label>
-              <label className="field">
-                Employment
-                <select value={f.employment_status} onChange={set("employment_status")}>
-                  {[["salaried", "Salaried"], ["self_employed", "Self-employed"], ["gig", "Gig worker"], ["freelancer", "Freelancer"], ["student", "Student"], ["unemployed", "Unemployed"]].map(([v, l]) => (
-                    <option key={v} value={v}>{l}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="field">Monthly income (₹)<input type="number" min={0} value={f.monthly_income} onChange={set("monthly_income")} required /></label>
-              <label className="field">
-                City tier
-                <select value={f.city_tier} onChange={set("city_tier")}>
-                  <option value="1">Tier 1</option>
-                  <option value="2">Tier 2</option>
-                  <option value="3">Tier 3</option>
-                </select>
-              </label>
-              <label className="field">Months in current job<input type="number" min={0} value={f.months_in_current_job} onChange={set("months_in_current_job")} /></label>
-              <label className="field">
-                Housing
-                <select value={f.housing_status} onChange={set("housing_status")}>
-                  <option value="own">Own home</option>
-                  <option value="rent">Renting</option>
-                  <option value="family">Living with family</option>
-                </select>
-              </label>
-              {f.housing_status === "rent" && (
-                <label className="field">Monthly rent (₹)<input type="number" min={0} value={f.monthly_rent} onChange={set("monthly_rent")} /></label>
-              )}
-              <label className="field">Months at this address<input type="number" min={0} value={f.months_at_address} onChange={set("months_at_address")} /></label>
-            </div>
-          </div>
-          <div className="card card-pad stack">
             <h2>Bank statement</h2>
             <p className="small muted">
-              CSV or JSON with columns <span className="mono">date, amount, category, type</span> (CREDIT/DEBIT), optionally{" "}
-              <span className="mono">status, subtype, balance_after</span>. Rent, Utility Bill, Telecom and Loan EMI debits are treated as bills; status "Late" marks a late payment.{" "}
-              <a href="/sample_transactions.csv" download>Download a synthetic sample file</a>.
+              Upload the statement your bank gives you: a <b>PDF</b> (downloaded or scanned) or a <b>photo</b> (PNG/JPG). Text PDFs are read directly;
+              scans and photos are read with OCR. Each transaction line needs a date and an amount. Salary, rent, bills, spending and savings are
+              recognised from the descriptions, and your employment and housing are inferred from them. CSV or JSON with columns{" "}
+              <span className="mono">date, amount, category, type</span> also works.{" "}
+              Synthetic samples: <a href="/sample_statement.pdf" download>statement PDF</a>, <a href="/sample_statement_scanned.pdf" download>scanned PDF</a>, <a href="/sample_transactions.csv" download>CSV</a>.
             </p>
             <div className="grid g2">
-              <label className="field">Transactions (required)<input type="file" accept=".csv,.json" onChange={(e) => setTxn(e.target.files?.[0] ?? null)} required /></label>
-              <label className="field">Bills with due dates (optional)<input type="file" accept=".csv,.json" onChange={(e) => setBills(e.target.files?.[0] ?? null)} /></label>
+              <FileDrop label="Bank statement" hint="PDF, PNG, JPG, CSV or JSON · up to 25 MB" accept={[".pdf", ".png", ".jpg", ".jpeg", ".csv", ".json"]} file={txn} onChange={setTxn} />
+              <FileDrop label="Bills with due dates" hint="CSV or JSON" accept={[".csv", ".json"]} file={bills} onChange={setBills} optional />
             </div>
           </div>
           {err && <ErrorBox error={err} />}
           <div className="row">
-            <button className="btn btn-primary" disabled={busy}>{busy ? "Scoring…" : "Create profile and score me"}</button>
+            <button className="btn btn-primary" disabled={busy}>{busy ? "Reading your statement and scoring…" : "Create profile and score me"}</button>
             <Link to="/login">Cancel</Link>
           </div>
         </form>
