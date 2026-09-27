@@ -226,3 +226,6 @@ table.table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
   .hero { grid-template-columns: 1fr; }
   .hero-score { border-right: 0; border-bottom: 1px solid var(--line); }
 }
+
+.login-side .brand { color: #fff; }
+.login-side .brand small { color: #94a3b8; }

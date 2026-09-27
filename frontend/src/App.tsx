@@ -1,5 +1,4 @@
-import { Link, Navigate, Route, Routes } from "react-router-dom";
-import { homeFor, useAuth } from "./hooks/useAuth";
+import { Link, Route, Routes } from "react-router-dom";
 import LenderLayout from "./layouts/LenderLayout";
 import UserLayout from "./layouts/UserLayout";
 import AdminHome from "./pages/admin/AdminHome";
@@ -21,11 +20,6 @@ import ScoreDetails from "./pages/user/ScoreDetails";
 import Target from "./pages/user/Target";
 import WhatIf from "./pages/user/WhatIf";
 
-function Home() {
-  const { session } = useAuth();
-  return <Navigate to={session ? homeFor(session) : "/login"} replace />;
-}
-
 function NotFound() {
   return (
     <div className="page">
@@ -39,7 +33,7 @@ function NotFound() {
 export default function App() {
   return (
     <Routes>
-      <Route path="/" element={<Home />} />
+      <Route path="/" element={<Login showDemo={false} />} />
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
       <Route path="/app" element={<UserLayout />}>

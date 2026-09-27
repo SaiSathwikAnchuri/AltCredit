@@ -13,14 +13,14 @@ interface DemoAccounts {
   note: string;
 }
 
-export default function Login() {
+export default function Login({ showDemo = true }: { showDemo?: boolean }) {
   const { session, login, demoLogin } = useAuth();
   const nav = useNavigate();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
-  const demo = useApi<DemoAccounts>("/api/auth/demo-accounts");
+  const demo = useApi<DemoAccounts>(showDemo ? "/api/auth/demo-accounts" : null);
   if (session) return <Navigate to={homeFor(session)} replace />;
 
   const submit = async (e: FormEvent) => {
@@ -91,9 +91,14 @@ export default function Login() {
             </div>
           </form>
 
-          {demo.loading && <Loading label="Loading demo accounts…" />}
-          {demo.error && <ErrorBox error={`Demo accounts unavailable: ${demo.error}`} onRetry={demo.reload} />}
-          {demo.data?.demo_mode && (
+          {!showDemo && (
+            <p className="xs muted" style={{ textAlign: "right" }}>
+              <Link to="/login">Demo accounts</Link>
+            </p>
+          )}
+          {showDemo && demo.loading && <Loading label="Loading demo accounts…" />}
+          {showDemo && demo.error && <ErrorBox error={`Demo accounts unavailable: ${demo.error}`} onRetry={demo.reload} />}
+          {showDemo && demo.data?.demo_mode && (
             <>
               <div>
                 <h2>Demo applicants</h2>
