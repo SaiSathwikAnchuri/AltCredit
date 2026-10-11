@@ -347,7 +347,7 @@ We would rather you hear these from us.
 - **Propensity is modest** (AUC 0.62), which is why it only orders products that are already eligible.
 - **Everything is synthetic.** All people, lenders and bank responses are generated. No real credit bureau or banking API is called, and the mock bank is a stand-in for a real partner integration.
 - **Some design choices are defaults.** Where the rulebook was silent (grace days, renters, multiple late bills in one month and others), documented defaults D1–D7 are applied; see [docs/assumptions.md](docs/assumptions.md).
-- **Lenders are fixed demo accounts.** There is no lender onboarding flow.
+- **Lenders are fixed demo accounts.** There is no lender onboarding flow........
 
 ---
 
